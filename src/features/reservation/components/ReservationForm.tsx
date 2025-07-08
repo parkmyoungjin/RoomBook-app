@@ -180,7 +180,7 @@ export function ReservationForm({ isOpen, onClose, initialDateTime }: Reservatio
         room_id: data.roomId,
         start_time: startTimeUTC,
         end_time: endTimeUTC,
-        purpose: data.purpose || null,
+        purpose: data.purpose ? data.purpose : undefined,
         status: "confirmed",
         user_id: user.id,
       };
