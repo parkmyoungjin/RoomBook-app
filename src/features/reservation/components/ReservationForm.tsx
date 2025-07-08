@@ -40,9 +40,9 @@ import { useAuthStore } from "@/lib/store/auth";
 import type { ReservationInsert } from "@/types/database";
 import { formatDateTimeForDatabase2, isCurrentTimeBusinessHours } from "@/lib/utils/date";
 
-// Generate time slots from 09:00 to 18:00
-const timeSlots = Array.from({ length: 19 }, (_, i) => {
-  const hour = 9 + Math.floor(i / 2);
+// Generate time slots from 08:00 to 19:00
+const timeSlots = Array.from({ length: 23 }, (_, i) => {
+  const hour = 8 + Math.floor(i / 2);
   const minute = i % 2 === 0 ? "00" : "30";
   return `${hour.toString().padStart(2, "0")}:${minute}`;
 });
@@ -79,9 +79,9 @@ const reservationFormSchema = z.object({
 }).refine((data) => {
   const startHour = parseInt(data.startTime.split(":")[0], 10);
   const endHour = parseInt(data.endTime.split(":")[0], 10);
-  return startHour >= 9 && endHour <= 18;
+  return startHour >= 8 && endHour <= 19;
 }, {
-  message: "예약은 오전 9시부터 오후 6시까지만 가능합니다",
+  message: "예약은 오전 8시부터 오후 7시까지만 가능합니다",
   path: ["startTime"],
 }).refine((data) => {
   // 한국 시간 기준으로 현재 시간 이후인지 확인
