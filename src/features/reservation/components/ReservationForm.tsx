@@ -227,7 +227,7 @@ export function ReservationForm({ isOpen, onClose, initialDateTime }: Reservatio
         <DialogHeader>
           <DialogTitle>회의실 예약</DialogTitle>
           <DialogDescription>
-            회의실 예약은 평일 오전 9시부터 오후 6시까지 가능합니다.
+            회의실 예약은 평일 오전 8시부터 오후 7시까지 가능합니다.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
