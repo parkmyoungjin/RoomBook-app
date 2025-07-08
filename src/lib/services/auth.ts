@@ -52,7 +52,7 @@ export const authService = {
 
     if (fetchError || !user) {
       console.error('사용자 조회 에러:', fetchError);
-      throw new Error(`사용자 정보 조회 실패: ${fetchError.message}`);
+      throw new Error(`사용자 정보 조회 실패: ${fetchError?.message || '알 수 없는 오류'}`);
     }
 
     return user;
