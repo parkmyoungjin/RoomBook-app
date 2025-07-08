@@ -31,7 +31,7 @@ import type { Reservation } from '@/types/database';
 export function ReservationList() {
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [selectedRoom, setSelectedRoom] = useState<string | undefined>();
+  const [selectedRoom, setSelectedRoom] = useState<string>('');  // 초기값을 빈 문자열로 변경
   
   // 선택된 날짜 기준으로 해당 일자의 예약만 조회
   const queryStartDate = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
@@ -101,7 +101,7 @@ export function ReservationList() {
               <SelectValue placeholder="전체 회의실" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={undefined}>전체 회의실</SelectItem>
+              <SelectItem value="">전체 회의실</SelectItem>
               {rooms?.map((room) => (
                 <SelectItem key={room.id} value={room.id}>
                   {room.name}
