@@ -34,9 +34,9 @@ export const authService = {
       }
     });
 
-    if (signUpError) {
+    if (signUpError || !authData.user) {
       console.error('Auth 에러:', signUpError);
-      throw new Error(`회원가입 실패: ${signUpError.message}`);
+      throw new Error(`회원가입 실패: ${signUpError?.message || '사용자 생성 실패'}`);
     }
 
     console.log('Auth 성공, 트리거로 사용자 데이터 자동 삽입됨');
