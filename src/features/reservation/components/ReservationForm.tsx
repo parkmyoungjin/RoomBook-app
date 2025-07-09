@@ -119,7 +119,7 @@ export function ReservationForm({ isOpen, onClose, initialDateTime }: Reservatio
   const form = useForm<ReservationFormValues>({
     resolver: zodResolver(reservationFormSchema),
     defaultValues: {
-      title: "",
+      title: department,
       purpose: "",
     },
   });
