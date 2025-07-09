@@ -237,9 +237,9 @@ export function ReservationForm({ isOpen, onClose, initialDateTime }: Reservatio
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>제목</FormLabel>
+                  <FormLabel>부서명</FormLabel>
                   <FormControl>
-                    <Input placeholder="회의 제목을 입력하세요" {...field} />
+                    <Input placeholder="부서명 입력하세요" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
