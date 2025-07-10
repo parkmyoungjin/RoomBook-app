@@ -8,11 +8,13 @@ import { ko } from "date-fns/locale";
 import { usePublicReservations } from "@/hooks/useReservations";
 import { formatDateTimeKorean, utcToKst } from "@/lib/utils/date";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { ReservationDetailDialog } from "./ReservationDetailDialog";
 import type { PublicReservation } from "@/types/database";
 import { useAuthStore } from "@/lib/store/auth";
+import { reservationKeys } from "@/hooks/useReservations";
 
 interface ReservationCalendarViewProps {
   onCellClick?: (date: Date, hour: number) => void;
@@ -20,6 +22,7 @@ interface ReservationCalendarViewProps {
 
 export default function ReservationCalendarView({ onCellClick }: ReservationCalendarViewProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const [selectedReservation, setSelectedReservation] = useState<PublicReservation | null>(null);
   const [date, setDate] = useState<Date>(new Date());
@@ -110,6 +113,19 @@ export default function ReservationCalendarView({ onCellClick }: ReservationCale
     setSelectedReservation(reservation);
   };
 
+  // ✅ 수동 새로고침 함수 강화 (강제 refetch 추가)
+  const handleManualRefresh = async () => {
+    // 캐시 무효화
+    queryClient.invalidateQueries({ 
+      queryKey: reservationKeys.public(weekRange.start, weekRange.end)
+    });
+    
+    // 강제로 새 데이터 가져오기
+    queryClient.refetchQueries({ 
+      queryKey: reservationKeys.public(weekRange.start, weekRange.end)
+    });
+  };
+
   // 빈 셀 클릭 핸들러 수정
   const handleEmptyCellClick = (date: Date, hour: number) => {
     // 과거 시간인지 확인
@@ -151,9 +167,20 @@ export default function ReservationCalendarView({ onCellClick }: ReservationCale
             <ChevronLeft className="h-5 w-5" />
           </button>
           
-          <h2 className="text-lg font-semibold">
-            {format(weekRange.dates[0], "MM월 dd일", { locale: ko })} ~ {format(weekRange.dates[4], "dd일 (E)", { locale: ko })} 
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">
+              {format(weekRange.dates[0], "MM월 dd일", { locale: ko })} ~ {format(weekRange.dates[4], "dd일 (E)", { locale: ko })} 
+            </h2>
+            
+            {/* ✅ 수동 새로고침 버튼 */}
+            <button
+              onClick={handleManualRefresh}
+              className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors"
+              title="새로고침"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          </div>
           
           <button
             onClick={() => setDate(addDays(date, 7))}

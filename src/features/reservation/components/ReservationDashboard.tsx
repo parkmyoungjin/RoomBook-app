@@ -38,6 +38,22 @@ export default function ReservationDashboard() {
   // 실시간 구독
   useRealtimeSubscription();
 
+  // 예약 블록 색상 팔레트 (status 페이지와 동일)
+  const colorPalette = [
+    { border: 'border-blue-500', bg: 'bg-blue-50', text: 'text-blue-900', textLight: 'text-blue-700' },
+    { border: 'border-green-500', bg: 'bg-green-50', text: 'text-green-900', textLight: 'text-green-700' },
+    { border: 'border-purple-500', bg: 'bg-purple-50', text: 'text-purple-900', textLight: 'text-purple-700' },
+    { border: 'border-orange-500', bg: 'bg-orange-50', text: 'text-orange-900', textLight: 'text-orange-700' },
+    { border: 'border-pink-500', bg: 'bg-pink-50', text: 'text-pink-900', textLight: 'text-pink-700' },
+    { border: 'border-indigo-500', bg: 'bg-indigo-50', text: 'text-indigo-900', textLight: 'text-indigo-700' },
+  ];
+
+  // 예약 ID를 기반으로 색상 선택 (status 페이지와 동일)
+  const getReservationColor = (reservationId: string) => {
+    const index = reservationId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colorPalette.length;
+    return colorPalette[index];
+  };
+
   // 현재 시간 업데이트 (1분마다)
   useEffect(() => {
     const timer = setInterval(() => {
@@ -137,12 +153,12 @@ export default function ReservationDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* 현재 예약 상태 - 모바일에서는 상단, 데스크탑에서는 좌측 (더 큰 비율) */}
           <div className="lg:col-span-3 order-1 lg:order-1">
-            <CurrentReservationCard reservation={currentReservation} />
+            <CurrentReservationCard reservation={currentReservation} getReservationColor={getReservationColor} />
           </div>
 
           {/* 오늘 일정 타임테이블 - 모바일에서는 하단, 데스크탑에서는 우측 (작은 비율) */}
           <div className="lg:col-span-2 order-2 lg:order-2">
-            <TodayScheduleCard timeSlots={timeSlots} rooms={rooms} currentTime={currentTime} />
+            <TodayScheduleCard timeSlots={timeSlots} rooms={rooms} currentTime={currentTime} getReservationColor={getReservationColor} />
           </div>
         </div>
       </CardContent>
@@ -151,7 +167,13 @@ export default function ReservationDashboard() {
 }
 
 // 현재 예약 상태 카드
-function CurrentReservationCard({ reservation }: { reservation: CurrentReservation | null }) {
+function CurrentReservationCard({ 
+  reservation, 
+  getReservationColor 
+}: { 
+  reservation: CurrentReservation | null;
+  getReservationColor: (id: string) => any;
+}) {
   const currentTime = new Date();
   const currentHour = currentTime.getHours();
   
@@ -191,34 +213,35 @@ function CurrentReservationCard({ reservation }: { reservation: CurrentReservati
   const { reservation: res, room } = reservation;
   const startTime = formatTime(res.start_time);
   const endTime = formatTime(res.end_time);
+  const colors = getReservationColor(res.id);
 
   return (
-    <Card className="h-full bg-blue-50 border-blue-200">
+    <Card className={`h-full ${colors.bg} border-l-4 ${colors.border}`}>
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-lg text-blue-900">{room.name}</CardTitle>
-            <p className="text-sm text-blue-700">{formatDate(currentTime, 'MM월 dd일')}</p>
+            <CardTitle className={`text-lg ${colors.text}`}>{room.name}</CardTitle>
+            <p className={`text-sm ${colors.textLight}`}>{formatDate(currentTime, 'MM월 dd일')}</p>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <p className="text-2xl font-bold text-blue-800 mb-2">
+          <p className={`text-2xl font-bold ${colors.text} mb-2`}>
             {startTime} ~ {endTime} 진행중
           </p>
         </div>
         
         <div className="space-y-3">
           <div>
-            <h3 className="text-xl font-bold text-blue-900">{res.title}</h3>
+            <h3 className={`text-xl font-bold ${colors.text}`}>{res.title}</h3>
             {res.purpose && (
-              <p className="text-base text-blue-800 mt-1">{res.purpose}</p>
+              <p className={`text-base ${colors.textLight} mt-1`}>{res.purpose}</p>
             )}
           </div>
           
-          <div className="border-t border-blue-200 pt-3">
-            <p className="text-base font-medium text-blue-800">
+          <div className={`border-t ${colors.border} pt-3`}>
+            <p className={`text-base font-medium ${colors.textLight}`}>
               {res.department} / {res.is_mine ? '나' : '동료'}
             </p>
           </div>
@@ -232,11 +255,13 @@ function CurrentReservationCard({ reservation }: { reservation: CurrentReservati
 function TodayScheduleCard({ 
   timeSlots, 
   rooms, 
-  currentTime 
+  currentTime,
+  getReservationColor
 }: { 
   timeSlots: TimeSlot[], 
   rooms: Room[], 
-  currentTime: Date 
+  currentTime: Date,
+  getReservationColor: (id: string) => any;
 }) {
   const currentHour = currentTime.getHours();
   const currentMinute = currentTime.getMinutes();
@@ -304,11 +329,6 @@ function TodayScheduleCard({
     })
     .filter((card): card is NonNullable<typeof card> => card !== null);
 
-  // 현재 시간 인디케이터 위치 계산
-  const currentTimePosition = currentHour >= startHour && currentHour < endHour
-    ? (((currentHour + currentMinute / 60) - startHour) / totalHours) * (totalHours * hourHeight)
-    : null;
-
   return (
     <Card className="h-full">
       <CardHeader>
@@ -337,8 +357,6 @@ function TodayScheduleCard({
               </div>
             ))}
 
-
-
             {/* 예약 카드 오버레이 */}
             <div className="absolute inset-0" style={{ left: '64px' }}>
               {reservationCards.map((card, index) => {
@@ -348,14 +366,15 @@ function TodayScheduleCard({
                 );
                 const columnIndex = sameTimeCards.length;
                 const maxColumns = Math.max(1, sameTimeCards.length + 1);
+                const colors = getReservationColor(card.id);
                 
                 return (
                   <div
                     key={card.id}
-                    className="absolute bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 shadow-sm hover:shadow-md hover:border-blue-300 hover:bg-blue-100 transition-all cursor-pointer z-20"
+                    className={`absolute ${colors.bg} border-l-4 ${colors.border} rounded px-3 py-2 shadow-sm hover:shadow-md transition-all cursor-pointer z-20`}
                     style={{
                       top: `${card.topPosition + 2}px`,
-                      height: `${Math.max(card.height - 4, 32)}px`, // 실제 예약 시간 길이, 여백 고려
+                      height: `${Math.max(card.height - 4, 32)}px`,
                       left: `${(columnIndex * 100) / maxColumns + 1}%`,
                       width: `${100 / maxColumns - 2}%`,
                     }}
@@ -364,11 +383,11 @@ function TodayScheduleCard({
                       {/* 좌측: 목적/부서명 */}
                       <div className="flex-1 min-w-0">
                         {card.reservation.purpose ? (
-                          <p className="font-medium text-xs text-blue-900 truncate">
+                          <p className={`font-medium text-xs ${colors.text} truncate`}>
                             {card.reservation.purpose} / {card.reservation.department}
                           </p>
                         ) : (
-                          <p className="text-xs text-blue-800 truncate">
+                          <p className={`text-xs ${colors.textLight} truncate`}>
                             {card.reservation.department}
                           </p>
                         )}
@@ -376,7 +395,7 @@ function TodayScheduleCard({
                       
                       {/* 우측: 시간 */}
                       <div className="flex-shrink-0 ml-2">
-                        <p className="text-xs text-blue-700 font-medium">
+                        <p className={`text-xs ${colors.textLight} font-medium`}>
                           {card.startTime}-{card.endTime}
                         </p>
                       </div>

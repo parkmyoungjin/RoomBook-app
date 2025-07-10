@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { reservationService } from '@/lib/services/reservations';
 import { useToast } from '@/hooks/use-toast';
+import { reservationKeys } from './useReservations';
 
 interface CancelReservationInput {
   id: string;
@@ -16,7 +17,11 @@ export function useCancelReservation() {
       return reservationService.cancelReservation(id, reason);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      // ✅ 통일된 키 시스템으로 관련 쿼리 무효화
+      queryClient.invalidateQueries({ 
+        queryKey: reservationKeys.all,
+        exact: false // 'reservations'로 시작하는 모든 쿼리 무효화
+      });
       toast({
         title: '예약이 취소되었습니다.',
         variant: 'default',

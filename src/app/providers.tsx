@@ -12,8 +12,14 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 5 * 1000, // 5 seconds
+            staleTime: 2 * 60 * 1000, // 🔧 2분으로 재조정 (실시간성 개선)
+            gcTime: 10 * 60 * 1000, // 🔧 10분으로 재조정 (캐시 유지)
             refetchOnWindowFocus: false,
+            refetchOnMount: true, // 🔥 마운트시 새 데이터 가져오기 (중요!)
+            refetchOnReconnect: true, // 🔥 재연결시 새 데이터 가져오기
+            retry: 2, // 재시도 2회로 복원
+            refetchInterval: false, // 자동 간격 refetch는 비활성화 유지
+            refetchIntervalInBackground: false, // 백그라운드 refetch는 비활성화 유지
           },
         },
       })

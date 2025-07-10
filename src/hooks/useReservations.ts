@@ -29,14 +29,16 @@ export function usePublicReservations(startDate: string, endDate: string) {
   return useQuery({
     queryKey: reservationKeys.public(startDate, endDate),
     queryFn: () => reservationService.getPublicReservations(startDate, endDate),
-    staleTime: 5 * 60 * 1000, // 5분간 fresh 상태 유지
-    gcTime: 10 * 60 * 1000, // 10분간 캐시 유지
+    staleTime: 10 * 60 * 1000, // 10분으로 연장장 (캐시 강화)
+    gcTime: 30 * 60 * 1000, // 30분으로 연장장 (캐시 강화)
     enabled: !!startDate && !!endDate,
-    retry: 3,
+    retry: 2, // 1번으로 줄임 (3번)
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    refetchOnMount: false, // 마운트시 자동 refetch 비활성화
-    refetchOnWindowFocus: false, // 윈도우 포커스시 자동 refetch 비활성화
-    refetchOnReconnect: true,
+    refetchOnMount: true, // 마운트시 새 데이터 가져오기 (중요)
+    refetchOnWindowFocus: false, // 도커시 동작 refetch 비활화
+    refetchOnReconnect: true, // 네트워크 재연결시 새 데이터 가져오기
+    refetchInterval: false, // 동작 간격 refetch 비활화
+    refetchIntervalInBackground: false, // 백그운도 refetch 비활화
   });
 }
 
@@ -45,12 +47,12 @@ export function useReservationsWithDetails(startDate: string, endDate: string) {
   return useQuery({
     queryKey: reservationKeys.withDetails(startDate, endDate),
     queryFn: () => reservationService.getReservationsWithDetails(startDate, endDate),
-    staleTime: 1 * 60 * 1000, // 1분간 fresh 상태 유지 (날짜 변경 시 빠른 반응)
-    gcTime: 5 * 60 * 1000, // 5분간 캐시 유지
+    staleTime: 1 * 60 * 1000, // 1분간 fresh ?�태 ?��? (?�짜 변�???빠른 반응)
+    gcTime: 5 * 60 * 1000, // 5분간 캐시 ?��?
     enabled: !!startDate && !!endDate,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    refetchOnMount: true, // 마운트 시 새로운 데이터 가져오기
+    refetchOnMount: true, // 마운?????�로???�이??가?�오�?
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });
@@ -63,14 +65,14 @@ export function useMyReservations() {
   return useQuery({
     queryKey: reservationKeys.my(),
     queryFn: () => reservationService.getMyReservations(user?.id),
-    staleTime: 2 * 60 * 1000, // 2분간 fresh 상태 유지
-    gcTime: 5 * 60 * 1000, // 5분간 캐시 유지
+    staleTime: 2 * 60 * 1000, // 2분간 fresh ?�태 ?��?
+    gcTime: 5 * 60 * 1000, // 5분간 캐시 ?��?
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
-    enabled: !!user?.id, // 사용자 ID가 있을 때만 실행
+    enabled: !!user?.id, // ?�용??ID가 ?�을 ?�만 ?�행
   });
 }
 
@@ -102,7 +104,7 @@ export function useCreateReservation() {
   return useMutation({
     mutationFn: (data: ReservationFormData) => {
       if (!user?.id) {
-        throw new Error('사용자 정보를 찾을 수 없습니다');
+        throw new Error('?�용???�보�?찾을 ???�습?�다');
       }
       
       // Convert Date objects to ISO strings and add user_id
@@ -118,16 +120,20 @@ export function useCreateReservation() {
       return reservationService.createReservation(reservationData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: reservationKeys.all });
+      // ????구체?�으�?무효??(?�체가 ?�닌 ?�요??부분만)
+      queryClient.invalidateQueries({ 
+        queryKey: reservationKeys.all,
+        exact: false // 'reservations'�??�작?�는 모든 쿼리 무효??
+      });
       toast({
-        title: '예약 완료',
-        description: '회의실 예약이 성공적으로 완료되었습니다.',
+        title: '?�약 ?�료',
+        description: '?�의???�약???�공?�으�??�료?�었?�니??',
       });
     },
     onError: (error: Error) => {
-      logger.error('예약 생성 실패', error);
+      logger.error('?�약 ?�성 ?�패', error);
       toast({
-        title: '예약 실패',
+        title: '?�약 ?�패',
         description: error.message,
         variant: 'destructive',
       });
@@ -150,15 +156,19 @@ export function useUpdateReservation() {
         ...(data.end_time && { end_time: data.end_time.toISOString() }),
       };
       
-      // ✅ 안전한 로깅으로 변경 (민감한 정보 제거)
+      // ???�전??로깅?�로 변�?(민감???�보 ?�거)
       logger.debug('Updating reservation', { id, hasData: !!updateData });
       return reservationService.updateReservation(id, updateData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: reservationKeys.all });
+      // ????구체?�으�?무효??(?�체가 ?�닌 ?�요??부분만)
+      queryClient.invalidateQueries({ 
+        queryKey: reservationKeys.all,
+        exact: false // 'reservations'�??�작?�는 모든 쿼리 무효??
+      });
     },
     onError: (error: Error) => {
-      logger.error('예약 수정 실패', error);
+      logger.error('?�약 ?�정 ?�패', error);
     },
   });
 }
@@ -172,16 +182,20 @@ export function useCancelReservation() {
     mutationFn: ({ id, reason }: { id: string; reason?: string }) => 
       reservationService.cancelReservation(id, reason),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: reservationKeys.all });
+      // ????구체?�으�?무효??(?�체가 ?�닌 ?�요??부분만)
+      queryClient.invalidateQueries({ 
+        queryKey: reservationKeys.all,
+        exact: false // 'reservations'�??�작?�는 모든 쿼리 무효??
+      });
       toast({
-        title: '예약 취소 완료',
-        description: '예약이 성공적으로 취소되었습니다.',
+        title: '?�약 취소 ?�료',
+        description: '?�약???�공?�으�?취소?�었?�니??',
       });
     },
     onError: (error: Error) => {
-      logger.error('예약 취소 실패', error);
+      logger.error('?�약 취소 ?�패', error);
       toast({
-        title: '예약 취소 실패',
+        title: '?�약 취소 ?�패',
         description: error.message,
         variant: 'destructive',
       });
@@ -189,7 +203,7 @@ export function useCancelReservation() {
   });
 }
 
-// ✅ PublicReservation 타입은 @/types/database에서 import
+// ??PublicReservation ?�?��? @/types/database?�서 import
 
 export function useReservations(startDate?: string, endDate?: string) {
   const today = new Date();
@@ -202,14 +216,14 @@ export function useReservations(startDate?: string, endDate?: string) {
       try {
         return await reservationService.getReservations(startDate || defaultStartDate, endDate || defaultEndDate);
       } catch (error) {
-        logger.error('예약 목록 조회 실패', error);
+        logger.error('?�약 목록 조회 ?�패', error);
         throw error;
       }
     },
-    staleTime: 1 * 60 * 1000, // 1분간 fresh 상태 유지 (날짜 변경 시 빠른 반응)
-    gcTime: 5 * 60 * 1000, // 5분간 캐시 유지
+    staleTime: 1 * 60 * 1000, // 1분간 fresh ?�태 ?��? (?�짜 변�???빠른 반응)
+    gcTime: 5 * 60 * 1000, // 5분간 캐시 ?��?
     enabled: true,
-    refetchOnMount: true, // 마운트 시 새로운 데이터 가져오기
+    refetchOnMount: true, // 마운?????�로???�이??가?�오�?
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     retry: 3,

@@ -12,6 +12,7 @@ export function useRealtimeSubscription() {
   const queryClient = useQueryClient();
   const isConnectedRef = useRef(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
 
   useEffect(() => {
     // Clear existing polling interval
@@ -32,6 +33,7 @@ export function useRealtimeSubscription() {
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           isConnectedRef.current = true;
+          reconnectAttemptsRef.current = 0; // ✅ 연결 성공 시 재시도 카운터 리셋
           // Stop polling when realtime is connected
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
@@ -55,11 +57,15 @@ export function useRealtimeSubscription() {
     const startPollingFallback = () => {
       if (pollingIntervalRef.current) return; // Already polling
       
+      // ✅ 점진적 백오프: 더 긴 간격으로 조정 (과도한 요청 방지)
+      const interval = Math.min(30000 + (reconnectAttemptsRef.current * 10000), 120000);
+      
       pollingIntervalRef.current = setInterval(() => {
         if (!isConnectedRef.current) {
           queryClient.invalidateQueries({ queryKey: ["reservations"] });
+          reconnectAttemptsRef.current++;
         }
-      }, 30000); // 30초 간격으로 폴링 (더 긴 간격으로 조정)
+      }, interval); // 30초 → 40초 → 50초 ... 최대 2분
     };
 
     // Start polling fallback after 5 seconds if not connected

@@ -212,6 +212,7 @@ export default function NewReservationForm() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="title"
@@ -239,6 +240,7 @@ export default function NewReservationForm() {
                     </FormItem>
                   )}
                 />
+              </div>
                 
                 <FormField
                   control={form.control}

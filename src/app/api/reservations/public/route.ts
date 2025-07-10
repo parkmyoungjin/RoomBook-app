@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createPureClient } from '@/lib/supabase/server';
+import { normalizeDateForQuery } from '@/lib/utils/date';
 import type { PublicReservation } from '@/types/database';
 
 export async function GET(request: NextRequest) {
@@ -13,6 +14,20 @@ export async function GET(request: NextRequest) {
     if (!startDate || !endDate) {
       return NextResponse.json(
         { error: 'startDate와 endDate가 필요합니다' },
+        { status: 400 }
+      );
+    }
+
+    // 날짜 범위 정규화
+    let normalizedStartDate: string;
+    let normalizedEndDate: string;
+
+    try {
+      normalizedStartDate = normalizeDateForQuery(startDate, false);
+      normalizedEndDate = normalizeDateForQuery(endDate, true);
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : '날짜 형식이 올바르지 않습니다' },
         { status: 400 }
       );
     }
@@ -34,8 +49,8 @@ export async function GET(request: NextRequest) {
         user:users!inner(department)
       `)
       .eq('status', 'confirmed')
-      .gte('end_time', startDate)
-      .lte('start_time', endDate)
+      .gte('end_time', normalizedStartDate)  // 예약 종료시간이 시작날짜 이후
+      .lte('start_time', normalizedEndDate)  // 예약 시작시간이 종료날짜 이전
       .order('start_time', { ascending: true });
 
     if (error) {

@@ -1,6 +1,8 @@
 'use client';
 
 import { supabase } from '@/lib/supabase/client';
+import { logger } from '@/lib/utils/logger';
+import { normalizeDateForQuery } from '@/lib/utils/date';
 import type { 
   Reservation, 
   ReservationInsert, 
@@ -8,7 +10,6 @@ import type {
   PublicReservation,
   ReservationWithDetails
 } from '@/types/database';
-import { logger } from '@/lib/utils/logger';
 
 export const reservationService = {
   async createReservation(data: ReservationInsert): Promise<Reservation> {
@@ -40,17 +41,28 @@ export const reservationService = {
       let query = supabase
         .from('reservations')
         .select(`
-          *,
-          user:users!inner(name, department),
+          id,
+          room_id,
+          user_id,
+          title,
+          purpose,
+          start_time,
+          end_time,
+          status,
+          user:users!inner(department),
           room:rooms!inner(name)
         `)
         .eq('status', 'confirmed')
         .order('start_time', { ascending: true });
 
       if (startDate && endDate) {
+        // 날짜 범위 정규화를 통한 정확한 쿼리
+        const normalizedStartDate = normalizeDateForQuery(startDate, false);
+        const normalizedEndDate = normalizeDateForQuery(endDate, true);
+        
         query = query
-          .gte('start_time', startDate)
-          .lte('end_time', endDate);
+          .gte('start_time', normalizedStartDate)  // 예약 시작시간이 범위 시작 이후
+          .lte('end_time', normalizedEndDate);     // 예약 종료시간이 범위 끝 이전
       }
 
       const { data, error } = await query;
@@ -60,7 +72,20 @@ export const reservationService = {
         throw new Error('예약 목록을 불러오는데 실패했습니다.');
       }
 
-      return data as PublicReservation[];
+      // PublicReservation 형태로 변환
+      const publicReservations: PublicReservation[] = (data || []).map((reservation: any) => ({
+        id: reservation.id,
+        room_id: reservation.room_id,
+        user_id: reservation.user_id,
+        title: reservation.title,
+        purpose: reservation.purpose,
+        start_time: reservation.start_time,
+        end_time: reservation.end_time,
+        department: reservation.user?.department || '',
+        is_mine: false // 클라이언트에서 설정됨
+      }));
+
+      return publicReservations;
     } catch (error) {
       logger.error('예약 목록 조회 중 오류 발생', error);
       throw error;
@@ -80,9 +105,13 @@ export const reservationService = {
         .order('start_time', { ascending: true });
 
       if (startDate && endDate) {
+        // 날짜 범위 정규화를 통한 정확한 쿼리
+        const normalizedStartDate = normalizeDateForQuery(startDate, false);
+        const normalizedEndDate = normalizeDateForQuery(endDate, true);
+        
         query = query
-          .gte('start_time', startDate)
-          .lte('end_time', endDate);
+          .gte('start_time', normalizedStartDate)  // 예약 시작시간이 범위 시작 이후
+          .lte('end_time', normalizedEndDate);     // 예약 종료시간이 범위 끝 이전
       }
 
       const { data, error } = await query;

@@ -3,6 +3,7 @@ import { reservationService } from '@/lib/services/reservations';
 import { useToast } from '@/hooks/use-toast';
 import { ReservationFormData } from '@/lib/validations/schemas';
 import { ReservationUpdate } from '@/types/database';
+import { reservationKeys } from './useReservations';
 
 export function useUpdateReservation() {
   const queryClient = useQueryClient();
@@ -19,7 +20,11 @@ export function useUpdateReservation() {
       return reservationService.updateReservation(id, updateData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      // ✅ 통일된 키 시스템으로 관련 쿼리 무효화
+      queryClient.invalidateQueries({ 
+        queryKey: reservationKeys.all,
+        exact: false // 'reservations'로 시작하는 모든 쿼리 무효화
+      });
       toast({
         title: '예약이 수정되었습니다.',
         variant: 'default',

@@ -351,6 +351,53 @@ export const isCurrentTimeBusinessHours = (): boolean => {
 
 // 한국 시간 기준으로 다음 가능한 예약 시간 반환
 export const getNextAvailableKSTTime = (baseDate?: Date): Date => {
-  const kstNow = baseDate ? utcToKst(baseDate) : utcToKst(new Date());
-  return getNextAvailableTime(kstNow);
+  const kstNow = utcToKst(baseDate || new Date());
+  return setMinutes(setHours(addDays(kstNow, getHours(kstNow) === 23 ? 1 : 0), (getHours(kstNow) + 1) % 24), 0);
+};
+
+/**
+ * 날짜 문자열을 정규화하여 정확한 범위 쿼리를 위한 ISO 문자열로 변환
+ * 데이터베이스 쿼리에서 날짜 경계 문제를 해결하기 위한 유틸리티 함수
+ * 
+ * @param dateStr - YYYY-MM-DD 형태의 날짜 문자열
+ * @param isEndDate - 종료 날짜인 경우 해당 날의 마지막 시간(23:59:59.999Z)을 반환
+ * @returns ISO 형태의 날짜시간 문자열
+ * 
+ * @example
+ * ```typescript
+ * // 시작 날짜: 2025-01-10T00:00:00.000Z
+ * normalizeDateForQuery('2025-01-10', false)
+ * 
+ * // 종료 날짜: 2025-01-10T23:59:59.999Z
+ * normalizeDateForQuery('2025-01-10', true)
+ * ```
+ */
+export const normalizeDateForQuery = (dateStr: string, isEndDate: boolean = false): string => {
+  // 날짜 형식 검증 (YYYY-MM-DD)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(dateStr)) {
+    throw new Error(`잘못된 날짜 형식입니다: ${dateStr}. YYYY-MM-DD 형식이어야 합니다.`);
+  }
+
+  if (isEndDate) {
+    // 종료 날짜의 경우 해당 날의 마지막 시간까지 포함
+    return `${dateStr}T23:59:59.999Z`;
+  } else {
+    // 시작 날짜의 경우 해당 날의 첫 시간부터 포함
+    return `${dateStr}T00:00:00.000Z`;
+  }
+};
+
+/**
+ * 날짜 범위를 데이터베이스 쿼리에 적합한 형태로 정규화
+ * 
+ * @param startDate - 시작 날짜 (YYYY-MM-DD)
+ * @param endDate - 종료 날짜 (YYYY-MM-DD)
+ * @returns 정규화된 시작 및 종료 날짜시간
+ */
+export const normalizeDateRange = (startDate: string, endDate: string) => {
+  return {
+    start: normalizeDateForQuery(startDate, false),
+    end: normalizeDateForQuery(endDate, true)
+  };
 }; 

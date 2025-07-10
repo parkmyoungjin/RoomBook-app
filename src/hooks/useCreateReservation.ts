@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { reservationService } from '@/lib/services/reservations';
 import { toast } from '@/hooks/use-toast';
 import { logger } from '@/lib/utils/logger';
+import { reservationKeys } from './useReservations';
 
 export function useCreateReservation() {
   const queryClient = useQueryClient();
@@ -21,9 +22,11 @@ export function useCreateReservation() {
       // ✅ 성공 로깅은 안전하게
       logger.userAction('Reservation creation successful');
       
-      // 관련 쿼리 무효화
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['myReservations'] });
+      // ✅ 통일된 키 시스템으로 관련 쿼리 무효화
+      queryClient.invalidateQueries({ 
+        queryKey: reservationKeys.all,
+        exact: false // 'reservations'로 시작하는 모든 쿼리 무효화
+      });
       
       toast({
         title: "예약이 생성되었습니다",

@@ -201,7 +201,7 @@ export default function EditReservationPage() {
             title: "예약이 수정되었습니다",
             description: "예약 정보가 성공적으로 업데이트되었습니다."
           });
-          router.push('/reservations/my');
+          router.replace('/reservations/my');
         },
         onError: (error) => {
           logger.error('예약 수정 실패', error);
