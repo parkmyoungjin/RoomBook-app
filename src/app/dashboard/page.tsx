@@ -1,11 +1,10 @@
 'use client';
 
 import { useAuthGuard } from '@/features/auth/hooks/useAuthGuard';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import ReservationDashboard from '@/features/reservation/components/ReservationDashboard';
+import MobileHeader from '@/components/ui/mobile-header';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -44,26 +43,8 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="outline"
-            onClick={handleGoBack}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            메인으로
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">예약 대시보드</h1>
-            <p className="text-gray-600">
-              실시간 회의실 예약 현황을 확인하세요
-            </p>
-          </div>
-        </div>
-
-        {/* Dashboard Content */}
+      <MobileHeader title="예약 대시보드" onBack={handleGoBack} />
+      <div className="max-w-7xl mx-auto px-4 py-8">
         <ReservationDashboard />
       </div>
     </div>

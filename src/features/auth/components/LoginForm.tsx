@@ -12,8 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/lib/store/auth';
 import { authService } from '@/lib/services/auth';
 import { loginSchema, type LoginFormData } from '@/lib/validations/schemas';
-import { LogIn, User, IdCard } from 'lucide-react';
-import { SignupDialog } from './SignupDialog';
+import { LogIn, User, IdCard, UserPlus } from 'lucide-react';
+import Link from 'next/link';
 
 export function LoginForm() {
   const router = useRouter();
@@ -71,12 +71,6 @@ export function LoginForm() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleSignupSuccess = (employeeId: string, name: string) => {
-    // 회원가입 성공 시 로그인 폼에 값을 자동으로 채워줍니다
-    form.setValue('employeeId', employeeId);
-    form.setValue('name', name);
   };
 
   return (
@@ -178,7 +172,12 @@ export function LoginForm() {
             <p className="text-sm text-gray-600 mb-2">
               처음 사용하시나요?
             </p>
-            <SignupDialog onSuccess={handleSignupSuccess} />
+            <Link href="/signup">
+              <Button variant="outline" type="button" className="w-full">
+                <UserPlus className="h-4 w-4 mr-2" />
+                새로운 계정 만들기
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

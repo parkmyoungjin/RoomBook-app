@@ -28,8 +28,8 @@ export default function ReservationDashboard() {
   
   // 오늘 날짜 범위 설정
   const today = format(new Date(), 'yyyy-MM-dd');
-  const startDate = `${today}T00:00:00Z`;
-  const endDate = `${today}T23:59:59Z`;
+  const startDate = today;
+  const endDate = today;
 
   // 데이터 가져오기
   const { data: reservations = [], isLoading: reservationsLoading } = usePublicReservations(startDate, endDate);
@@ -153,7 +153,12 @@ export default function ReservationDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* 현재 예약 상태 - 모바일에서는 상단, 데스크탑에서는 좌측 (더 큰 비율) */}
           <div className="lg:col-span-3 order-1 lg:order-1">
-            <CurrentReservationCard reservation={currentReservation} getReservationColor={getReservationColor} />
+            <CurrentReservationCard 
+              reservation={currentReservation} 
+              reservations={reservations}
+              rooms={rooms}
+              getReservationColor={getReservationColor} 
+            />
           </div>
 
           {/* 오늘 일정 타임테이블 - 모바일에서는 하단, 데스크탑에서는 우측 (작은 비율) */}
@@ -169,9 +174,13 @@ export default function ReservationDashboard() {
 // 현재 예약 상태 카드
 function CurrentReservationCard({ 
   reservation, 
+  reservations,
+  rooms,
   getReservationColor 
 }: { 
   reservation: CurrentReservation | null;
+  reservations: PublicReservation[];
+  rooms: Room[];
   getReservationColor: (id: string) => any;
 }) {
   const currentTime = new Date();
@@ -182,6 +191,21 @@ function CurrentReservationCard({
     const nextHour = currentHour + 1;
     return `${currentHour.toString().padStart(2, '0')}:00 ~ ${nextHour.toString().padStart(2, '0')}:00`;
   };
+
+  // 다음 예약 찾기
+  const getNextReservation = () => {
+    const now = new Date();
+    const todayReservations = reservations
+      .filter(res => {
+        const startTime = new Date(res.start_time);
+        return startTime > now;
+      })
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    
+    return todayReservations.length > 0 ? todayReservations[0] : null;
+  };
+
+  const nextReservation = getNextReservation();
 
   if (!reservation) {
     return (
@@ -203,7 +227,13 @@ function CurrentReservationCard({
           
           <div className="space-y-2">
             <p className="text-lg text-gray-600">사용 가능</p>
-            <p className="text-sm text-gray-500">예약이 없어 자유롭게 사용할 수 있습니다</p>
+            {nextReservation ? (
+              <p className="text-sm text-gray-500">
+                다음회의: {formatTime(nextReservation.start_time)} ({nextReservation.title})
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">오늘 예정된 회의가 없습니다</p>
+            )}
           </div>
         </CardContent>
       </Card>
