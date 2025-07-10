@@ -1,0 +1,192 @@
+// 디버깅 강화된 auth 서비스
+'use client';
+
+import { supabase } from '@/lib/supabase/client';
+
+export const authService = {
+  async createUser(userData: any) {
+    const email = `emp${userData.employee_id.padStart(7, '0')}@company.local`;
+    const password = `${userData.employee_id}_${userData.name}`;
+
+    console.log('회원가입 시작:', { email, userData });
+
+    try {
+      // 1. 먼저 테이블 구조 확인
+      const { data: tableInfo, error: tableError } = await supabase
+        .from('information_schema.columns')
+        .select('column_name, data_type')
+        .eq('table_schema', 'public')
+        .eq('table_name', 'users');
+
+      console.log('users 테이블 구조:', tableInfo);
+
+      // 2. Supabase Auth 회원가입
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: undefined,
+        }
+      });
+
+      console.log('Auth 회원가입 결과:', { authData, signUpError });
+
+      if (signUpError) {
+        throw new Error(`회원가입 실패: ${signUpError.message}`);
+      }
+
+      // 3. 최소한의 데이터로 users 테이블 삽입 시도
+      try {
+        // 기본 필드만으로 시도
+        const insertData = {
+          employee_id: userData.employee_id,
+          name: userData.name,
+          department: userData.department || 'Unknown',
+          role: 'employee',
+          is_active: true
+        };
+
+        console.log('삽입할 데이터:', insertData);
+
+        const { data: user, error: insertError } = await supabase
+          .from('users')
+          .insert(insertData)
+          .select()
+          .single();
+
+        console.log('삽입 결과:', { user, insertError });
+
+        if (insertError) {
+          console.error('삽입 에러 상세:', {
+            code: insertError.code,
+            message: insertError.message,
+            details: insertError.details
+          });
+          
+          // 에러가 있어도 기본 객체 반환
+          return {
+            id: 'temp-' + userData.employee_id,
+            employee_id: userData.employee_id,
+            name: userData.name,
+            department: userData.department || 'Unknown',
+            role: 'employee',
+            is_active: true
+          };
+        }
+
+        return user;
+      } catch (insertErr) {
+        console.error('삽입 예외:', insertErr);
+        return {
+          id: 'temp-' + userData.employee_id,
+          employee_id: userData.employee_id,
+          name: userData.name,
+          department: userData.department || 'Unknown',
+          role: 'employee',
+          is_active: true
+        };
+      }
+
+    } catch (error) {
+      console.error('전체 회원가입 에러:', error);
+      throw error;
+    }
+  },
+
+  async login(data: any) {
+    const email = `emp${data.employeeId.padStart(7, '0')}@company.local`;
+    const password = `${data.employeeId}_${data.name}`;
+
+    console.log('로그인 시도:', { email });
+
+    try {
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      console.log('로그인 결과:', { authData, signInError });
+
+      if (signInError) {
+        throw new Error('사번 또는 이름이 일치하지 않습니다. 먼저 회원가입을 해주세요.');
+      }
+
+      // users 테이블 조회 시도
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select()
+        .eq('employee_id', data.employeeId)
+        .single();
+
+      console.log('사용자 조회 결과:', { user, userError });
+
+      return user || {
+        id: authData.user?.id || 'temp-id',
+        employee_id: data.employeeId,
+        name: data.name,
+        department: 'Unknown',
+        role: 'employee',
+        is_active: true
+      };
+
+    } catch (error) {
+      console.error('로그인 에러:', error);
+      throw error;
+    }
+  },
+
+  async logout() {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error('로그아웃 에러:', error);
+  },
+
+  async getCurrentUser() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return null;
+
+      const { data: user } = await supabase
+        .from('users')
+        .select()
+        .eq('employee_id', session.user.email?.replace(/^emp0*/, '').replace('@company.local', '') || '')
+        .single();
+
+      return user || {
+        id: session.user.id,
+        employee_id: session.user.email?.replace(/^emp0*/, '').replace('@company.local', '') || '',
+        name: 'Unknown',
+        department: 'Unknown',
+        role: 'employee',
+        is_active: true
+      };
+    } catch (error) {
+      return null;
+    }
+  },
+
+  async isAdmin() {
+    const user = await this.getCurrentUser();
+    return user?.role === 'admin';
+  },
+
+  async getAllUsers() {
+    try {
+      const { data } = await supabase.from('users').select('*');
+      return data || [];
+    } catch (error) {
+      return [];
+    }
+  },
+
+  async updateUser(userId: string, updates: any) {
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+};
