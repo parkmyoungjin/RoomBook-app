@@ -1,0 +1,217 @@
+'use client';
+
+import { supabase } from '@/lib/supabase/client';
+import { User, UserInsert } from '@/types/database';
+import { LoginFormData } from '@/lib/validations/schemas';
+
+// 사번을 이메일 형식으로 변환하는 함수
+const employeeIdToEmail = (employeeId: string) => `emp${employeeId.padStart(7, '0')}@company.local`;
+
+export const authService = {
+  async createUser(userData: UserInsert): Promise<User> {
+    // 1. 이메일 형식으로 변환
+    const email = employeeIdToEmail(userData.employee_id);
+    const password = `${userData.employee_id}_${userData.name}`;
+
+    try {
+      // 2. Supabase Auth에 사용자 생성 (이메일 확인 비활성화)
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: undefined, // 이메일 확인 비활성화
+          data: {
+            employee_id: userData.employee_id,
+            name: userData.name,
+            department: userData.department,
+            role: userData.role || 'employee'
+          }
+        }
+      });
+
+      if (signUpError) {
+        console.error('Auth signup error:', signUpError);
+        throw new Error(`계정 생성 실패: ${signUpError.message}`);
+      }
+
+      if (!authData.user) {
+        throw new Error('사용자 계정이 생성되지 않았습니다.');
+      }
+
+      // 3. users 테이블에 직접 데이터 삽입 (트리거 실패 대비)
+      const { data: user, error: insertError } = await supabase
+        .from('users')
+        .insert({
+          auth_id: authData.user.id,
+          employee_id: userData.employee_id,
+          name: userData.name,
+          email: email,
+          department: userData.department,
+          role: userData.role || 'employee',
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        // 이미 존재하는 경우 무시하고 기존 데이터 조회
+        if (insertError.code === '23505') { // unique violation
+          const { data: existingUser, error: selectError } = await supabase
+            .from('users')
+            .select()
+            .eq('employee_id', userData.employee_id)
+            .single();
+
+          if (selectError || !existingUser) {
+            throw new Error('사용자 정보를 찾을 수 없습니다.');
+          }
+          return existingUser;
+        }
+        throw new Error(`사용자 정보 저장 실패: ${insertError.message}`);
+      }
+
+      return user;
+    } catch (error) {
+      console.error('Create user error:', error);
+      throw error;
+    }
+  },
+
+  async login(data: LoginFormData): Promise<User> {
+    const email = employeeIdToEmail(data.employeeId);
+    const password = `${data.employeeId}_${data.name}`;
+
+    try {
+      // 1. Supabase Auth 로그인 시도
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        // 로그인 실패 시 계정이 없는 것으로 간주하고 에러 발생
+        throw new Error('사번 또는 이름이 일치하지 않습니다. 회원가입이 필요한 경우 "새로운 계정 만들기"를 클릭해주세요.');
+      }
+
+      if (!authData.user) {
+        throw new Error('로그인 정보가 올바르지 않습니다.');
+      }
+
+      // 2. users 테이블에서 사용자 정보 조회
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select()
+        .eq('auth_id', authData.user.id)
+        .single();
+
+      if (userError || !user) {
+        // auth는 있지만 users 테이블에 데이터가 없는 경우 동기화 시도
+        const { data: syncedUser, error: syncError } = await supabase
+          .from('users')
+          .insert({
+            auth_id: authData.user.id,
+            employee_id: data.employeeId,
+            name: data.name,
+            email: email,
+            department: 'Not Specified',
+            role: 'employee',
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (syncError) {
+          throw new Error('사용자 정보 동기화에 실패했습니다.');
+        }
+        return syncedUser;
+      }
+
+      // 3. 이름 검증 (보안상 중요)
+      if (user.name !== data.name) {
+        await supabase.auth.signOut(); // 잘못된 접근 시 로그아웃
+        throw new Error('사번과 이름이 일치하지 않습니다.');
+      }
+
+      return user;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  },
+
+  async logout(): Promise<void> {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Logout error:', error);
+      throw new Error('로그아웃 중 오류가 발생했습니다.');
+    }
+  },
+
+  async getCurrentUser(): Promise<User | null> {
+    try {
+      // 세션에서 사용자 정보 조회
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        return null;
+      }
+
+      if (!session?.user) {
+        return null;
+      }
+
+      // users 테이블에서 상세 정보 조회
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select()
+        .eq('auth_id', session.user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (userError) {
+        console.error('User fetch error:', userError);
+        return null;
+      }
+
+      return user;
+    } catch (error) {
+      console.error('Get current user error:', error);
+      return null;
+    }
+  },
+
+  async isAdmin(): Promise<boolean> {
+    const user = await this.getCurrentUser();
+    return user?.role === 'admin';
+  },
+
+  async getAllUsers(): Promise<User[]> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) {
+      throw new Error(`사용자 목록 조회 실패: ${error.message}`);
+    }
+
+    return data;
+  },
+
+  async updateUser(userId: string, updates: Partial<User>): Promise<User> {
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`사용자 업데이트 실패: ${error.message}`);
+    }
+
+    return data;
+  }
+}; 
